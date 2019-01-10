@@ -1,0 +1,312 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns:sf="antlib:com.salesforce" name="Jefferies"
+	default="validateOnly">
+	<property environment="env" />
+	<taskdef resource="net/sf/antcontrib/antlib.xml" />
+	
+	<target name="fetchChanges">
+		
+		<local name="commandOutput1" />
+		<!--Fetch Last deployed Commit ID-->
+		<exec dir="." executable="C:\Program Files\Git\bin\bash.exe"
+			osfamily="windows" outputproperty="commandOutput1">
+			<arg value="fetchTag.sh" />
+			<arg value="PlanKey" />
+			<arg value="Revision" />
+		</exec>
+
+		<echo> Fetched Last deployed Commit ID ${commandOutput1}</echo>
+
+		<local name="commandOutput" />
+		<!-- Fetch changed components -->
+		<exec executable="C:\Program Files\Git\bin\git.exe" failonerror="true"
+			outputproperty="commandOutput">
+			<arg line="diff --name-only ${commandOutput1}" />
+		</exec>
+
+		<echo> Fetched changed components ${commandOutput}</echo>
+
+		<local name="changesToDeploy" />
+		<property name="changesToDeploy" value="changesToDeploy" />
+		<delete dir="${changesToDeploy}" />
+		<mkdir dir="${changesToDeploy}" />
+		<for list="${commandOutput}" param="detls" delimiter="${line.separator}">
+			<sequential>
+				<if>
+					<and>
+						<contains string="@{detls}" substring="staticresources" />
+						<not>
+							<contains string="@{detls}" substring=".resource" />
+						</not>
+					</and>
+					<then>
+						<propertyregex property="resourceFolderName" input="@{detls}"
+							regexp="..\\src\\staticresources\\([^\\]*)" select="\1"
+							casesensitive="false" />
+						<copy todir="${changesToDeploy}/staticresources">
+							<fileset dir="../src/staticresources">
+								<include name="${resourceFolderName}/**" />
+								<include name="${resourceFolderName}.resource-meta.xml" />
+							</fileset>
+						</copy>
+					</then>
+					<else>
+						<local name="filename" />
+						<propertyregex property="filename" override="yes"
+							input="@{detls}" regexp=".*/(.*)" select="\1" />
+						<if>
+							<isset property="filename" />
+							<then>
+								<copy todir="${changesToDeploy}">
+									<fileset dir="../src">
+										<include name="**/${filename}" />
+										<include name="**/${filename}-meta.xml" />
+									</fileset>
+								</copy>
+							</then>
+						</if>
+						<if>
+							<and>
+								<isset property="filename" />
+								<contains string="@{detls}" substring="/aura/" />
+							</and>
+							<then>
+								<propertyregex override="yes" property="pathUpToAura"
+									input="@{detls}" regexp="/(.*)$" select="\1" />
+								<propertyregex override="yes" property="pathUpToAuraFolder"
+									input="${pathUpToAura}" regexp="/(.*)$" select="\1" />
+								<propertyregex override="yes" property="auraFolderName"
+									input="${pathUpToAuraFolder}" regexp="^(.+?)/" select="\1" />
+								<if>
+									<available file="../src/aura/${auraFolderName}" type="dir" />
+									<then>
+										<copy overwrite="true"
+											todir="${changesToDeploy}/aura/${auraFolderName}">
+											<fileset dir="../src/aura/${auraFolderName}">
+											</fileset>
+										</copy>
+									</then>
+								</if>
+							</then>
+						</if>
+					</else>
+				</if>
+			</sequential>
+		</for>
+		<antcall target="generatePackageXML" />
+	</target>
+
+	<!-- Delta Deployment -->
+	<target name="deploy" depends="fetchChanges">
+		<sf:deploy username="${sf.username}" password="${sf.password}"
+			serverurl="${sf.serverurl}" pollWaitMillis="10000"
+			deployRoot="changesToDeploy" testLevel="RunLocalTests"
+			ignoreWarnings="true">
+		</sf:deploy>
+	</target>
+	
+	<!-- Delta Deployment -->
+	<target name="deployTestOnly" depends="fetchChanges">
+		<sf:deploy username="${sf.username}" password="${sf.password}"
+			serverurl="${sf.serverurl}" pollWaitMillis="10000"
+			deployRoot="changesToDeploy" testLevel="RunLocalTests"
+			ignoreWarnings="true" checkOnly="true">
+		</sf:deploy>
+	</target>
+
+	<!-- Deployed Commit Tag  -->
+	<target name="commitTag">
+		<local name="commandOutput1" />
+		<exec dir="." executable="C:\Program Files\Git\bin\bash.exe"
+			osfamily="windows" outputproperty="commandOutput1">
+			<arg value="commitTag.sh" />
+			<arg value="PlanKey" />
+			<arg value="Revision" />
+			<arg value="Plan12345" />
+			<arg value="Build12345" />
+			<arg value="https://github.com/Azad-Metacube/TestJenkinsRepo" />
+			<arg value="Git_2018" />
+		</exec>
+		<echo> ${commandOutput1}</echo>
+	</target>
+	
+	<target name="generatePackageXML">
+		<echo file="changesToDeploy/package.xml"><![CDATA[<?xml version="1.0" encoding="UTF-8"?>
+            <Package xmlns="http://soap.sforce.com/2006/04/metadata">
+                <types>
+                    <members>*</members>
+                    <name>ApexClass</name>
+                </types>
+                <types>
+                    <members>*</members>
+                    <name>ApexComponent</name>
+                </types>
+                <types>
+                    <members>*</members>
+                    <name>ApexPage</name>
+                </types>
+                <types>
+                    <members>*</members>
+                    <name>ApexTestSuite</name>
+                </types>
+                <types>
+                    <members>*</members>
+                    <name>ApexTrigger</name>
+                </types>
+                <types>
+                    <members>*</members>
+                    <name>AppMenu</name>
+                </types>
+                <types>
+                    <members>*</members>
+                    <name>ApprovalProcess</name>
+                </types>
+                <types>
+                    <members>*</members>
+                    <name>AuraDefinitionBundle</name>
+                </types>
+                <types>
+                    <members>*</members>
+                    <name>AuthProvider</name>
+                </types>
+                <types>
+                    <members>*</members>
+                    <name>AutoResponseRule</name>
+                </types>
+                <types>
+                    <members>*</members>
+                    <name>ConnectedApp</name>
+                </types>
+                <types>
+                    <members>*</members>
+                    <name>CustomApplication</name>
+                </types>
+                <types>
+                    <members>*</members>
+                    <name>CustomApplicationComponent</name>
+                </types>
+                <types>
+                    <members>*</members>
+                    <name>CustomLabels</name>
+                </types>
+                <types>
+                    <members>*</members>
+                    <name>CustomMetadata</name>
+                </types>
+                <types>
+                    <members>*</members>
+                    <name>CustomObject</name>
+                </types>
+                <types>
+                    <members>*</members>
+                    <name>CustomPageWebLink</name>
+                </types>
+                <types>
+                    <members>*</members>
+                    <name>CustomPermission</name>
+                </types>
+                <types>
+                    <members>*</members>
+                    <name>CustomSite</name>
+                </types>
+                <types>
+                    <members>*</members>
+                    <name>CustomTab</name>
+                </types>
+                <types>
+                    <members>*</members>
+                    <name>DuplicateRule</name>
+                </types> 
+                <types>
+                    <members>*</members>
+                    <name>EmailTemplate</name>
+                </types>
+                <types>
+                    <members>*</members>
+                    <name>EntitlementProcess</name>
+                </types>
+                <types>
+                    <members>*</members>
+                    <name>FlexiPage</name>
+                </types>
+                <types>
+                    <members>*</members>
+                    <name>Flow</name>
+                </types>
+                <types>
+                    <members>*</members>
+                    <name>GlobalValueSet</name>
+                </types>
+                <types>
+                    <members>*</members>
+                    <name>HomePageComponent</name>
+                </types>
+                <types>
+                    <members>*</members>
+                    <name>HomePageLayout</name>
+                </types>
+                <types>
+                    <members>*</members>
+                    <name>Layout</name>
+                </types>
+                <types>
+                    <members>*</members>
+                    <name>LeadConvertSettings</name>
+                </types>
+                <types>
+                    <members>*</members>
+                    <name>MatchingRules</name>
+                </types>
+                <types>
+                    <members>*</members>
+                    <name>PathAssistant</name>
+                </types>
+                <types>
+                    <members>*</members>
+                    <name>PermissionSet</name>
+                </types>
+                <types>
+                    <members>*</members>
+                    <name>PostTemplate</name>
+                </types>
+                <types>
+                    <members>*</members>
+                    <name>Profile</name>
+                </types>
+                <types>
+                    <members>*</members>
+                    <name>QuickAction</name>
+                </types>
+                <types>
+                    <members>*</members>
+                    <name>Scontrol</name>
+                </types>
+                <types>
+                    <members>*</members>
+                    <name>Skill</name>
+                </types>
+                <types>
+                    <members>*</members>
+                    <name>StandardValueSet</name>
+                </types>
+                <types>
+                    <members>*</members>
+                    <name>StaticResource</name>
+                </types>
+                <types>
+                    <members>*</members>
+                    <name>Translations</name>
+                </types>
+                <types>
+                    <members>*</members>
+                    <name>Workflow</name>
+                </types>
+                <types>
+                    <members>*</members>
+                    <name>Settings</name>
+                </types>
+                <version>43.0</version>
+            </Package>]]>
+		</echo>
+	</target>
+</project>
