@@ -124,7 +124,7 @@
 			<arg value="Revision" />
 			<arg value="Plan12345" />
 			<arg value="Build12345" />
-			<arg value="https://github.com/Azad-Metacube/TestJenkinsRepo" />
+			<arg value="https://github.com/Azad-Metacube/DevRepo" />
 			<arg value="Git_2018" />
 		</exec>
 		<echo> ${commandOutput1}</echo>

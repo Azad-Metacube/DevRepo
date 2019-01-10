@@ -23,7 +23,7 @@ PASSWORD=$BITBUCKETPASSWORD
 REPOURL=${ACTUALURL#*https://}
 REPOURL="https://"$USERNAME:$PASSWORD@$REPOURL
 git remote add central2 $REPOURL
-git config --global user.email "kavita.beniwal@metacube.com"
+git config --global user.email "Azad-Metacube"
 git config --global user.name $USERNAME
 git config --global push.default simple
  
